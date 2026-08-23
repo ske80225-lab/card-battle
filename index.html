@@ -96,7 +96,7 @@
   .badge.p2{background:var(--accent2);top:6px;right:auto;left:6px;}
 
   /* ===== バトル画面 ===== */
-  .board{display:grid;grid-template-columns:1fr 180px 1fr;gap:12px;align-items:start;}
+  .board{display:grid;grid-template-columns:1fr 150px 1fr;gap:12px;align-items:start;}
   @media(max-width:820px){.board{grid-template-columns:1fr;}}
   .side{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px;border:2px solid transparent;position:relative;}
   /* ダメージ数字のポップアップ（ドラクエ風に跳ねる） */
@@ -150,14 +150,17 @@
   .dot{width:11px;height:11px;border-radius:50%;background:#e0e0e0;}
   .dot.on{background:var(--accent);}
 
-  .center{display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:24px;}
-  .dice{width:92px;height:92px;border-radius:18px;background:var(--card);color:var(--ink);
-    display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:800;box-shadow:var(--shadow);}
-  .dice.rolling{animation:sh .12s infinite;}
-  @keyframes sh{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(-3px,2px) rotate(-6deg)}
-  75%{transform:translate(3px,-2px) rotate(6deg)}100%{transform:translate(0,0) rotate(0)}}
-  .verdict{font-size:13px;font-weight:700;text-align:center;min-height:18px;}
+  .center{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:10px;padding:10px 0;min-height:56px;}
+  .verdict{font-size:17px;font-weight:800;text-align:center;min-height:24px;line-height:1.4;}
   .verdict.hit{color:#2f9e44;} .verdict.miss{color:var(--accent);}
+
+  /* サイコロを振れるときは、そのプレイヤーのパネル全体がボタンになる */
+  .side.rollable{cursor:pointer;}
+  .side.rollable:active{transform:scale(.99);}
+  .rollhint{margin-top:10px;text-align:center;background:var(--accent);color:#fff;font-weight:800;
+    font-size:13px;border-radius:99px;padding:9px 12px;animation:hintpulse 1.4s ease-in-out infinite;}
+  @keyframes hintpulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.82;transform:scale(.985);}}
 
   .panelbox{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px;margin-top:14px;}
   .msg{font-size:15px;font-weight:800;margin-bottom:10px;min-height:22px;}
@@ -232,7 +235,6 @@
     <div class="board">
       <div class="side" id="side0"><div id="sidebody0"></div><div class="poplayer" id="pop0"></div></div>
       <div class="center">
-        <div class="dice" id="dice">–</div>
         <div class="verdict" id="verdict"></div>
       </div>
       <div class="side" id="side1"><div id="sidebody1"></div><div class="poplayer" id="pop1"></div></div>
@@ -552,13 +554,9 @@ async function startRoulette(){
   G.phase='roulette'; G.busy=true;
   setMsg('先攻・後攻をルーレットで決めます…');
   setActions([]); render();
-  const el=$('dice');
-  el.classList.add('rolling');
-  for(let i=0;i<14;i++){ el.textContent=(i%2===0)?'1':'2'; await sleep(70); }
-  el.classList.remove('rolling');
+  for(let i=0;i<10;i++){ setVerdict('🎲 '+G.players[i%2].name+' …'); await sleep(110); }
   G.first=(Math.random()<0.5)?0:1;
   G.turn=G.first; G.rouletteDone=true;
-  el.textContent='🎯';
   logMsg('ルーレットの結果、<span class="hl">'+esc(G.players[G.first].name)+'</span>が先攻！');
   setVerdict('先攻：'+G.players[G.first].name,'hit');
   await sleep(700);
@@ -572,7 +570,6 @@ function beginTurn(){
   G.phase='action';
   const p=G.players[G.turn];
   setVerdict('');
-  $('dice').textContent='–';
   setMsg(p.name+'のターン');
   render();
   if(p.cpu){ G.busy=true; setTimeout(cpuTurn, 800); }
@@ -584,32 +581,29 @@ function endTurn(){
 }
 
 async function rollDice(){
+  if(G.over || G.phase!=='action') return;
   if(G.busy && !G.players[G.turn].cpu) return;
   G.busy=true; setActions([]); render();
   const p=G.players[G.turn];
-  const el=$('dice');
-  el.classList.add('rolling');
-  for(let i=0;i<12;i++){ el.textContent=(Math.random()*6|0)+1; await sleep(65); }
-  el.classList.remove('rolling');
+  for(let i=0;i<9;i++){ setVerdict('🎲 '+((Math.random()*6|0)+1)); await sleep(75); }
 
   const d=(Math.random()*6|0)+1;
-  el.textContent=d;
 
   if(d<=4){
     const mv=p.active.moves[d-1];
     if(mv){
-      setVerdict(d+' → '+mv.n+'！','hit');
+      setVerdict('🎲 '+d+' → '+mv.n+'！','hit');
       logMsg('<b>'+esc(p.name)+'</b>はサイコロで <span class="hl">'+d+'</span> を出した → 「'+esc(mv.n)+'」！');
       await sleep(650);
       useMove(d-1);
     }else{
-      setVerdict(d+' → 番号'+d+'のわざがない…','miss');
+      setVerdict('🎲 '+d+' → 番号'+d+'のわざがない…','miss');
       logMsg('<b>'+esc(p.name)+'</b>はサイコロで <span class="hl">'+d+'</span>… '+esc(p.active.name)+'に番号'+d+'のわざはない。');
       await sleep(900);
       endTurn();
     }
   }else{
-    setVerdict(d+' → わざが出せない…','miss');
+    setVerdict('🎲 '+d+' → わざが出せない…','miss');
     logMsg('<b>'+esc(p.name)+'</b>はサイコロで <span class="hl">'+d+'</span>… わざが出せなかった。');
     await sleep(900);
     endTurn();
@@ -761,6 +755,12 @@ function popDamage(pi, n, self){
   setTimeout(()=>el.remove(), 1300);
 }
 
+/* このプレイヤーがいまサイコロを振れるか（パネルをタップできるか） */
+function canRoll(pi){
+  return !G.over && G.phase==='action' && G.rouletteDone
+      && G.turn===pi && !G.players[pi].cpu && !G.busy;
+}
+
 function sideHTML(pi){
   const p=G.players[pi];
   const isTurn = !G.over && G.rouletteDone && G.turn===pi;
@@ -783,13 +783,18 @@ function sideHTML(pi){
     +'<span class="pill">負け '+p.losses+' / '+MAX_LOSS+'</span></div><div class="losses">';
   for(let i=0;i<MAX_LOSS;i++) h+='<span class="dot'+(i<p.losses?' on':'')+'"></span>';
   h+='</div>';
+  if(canRoll(pi)) h+='<div class="rollhint">🎲 ここをタップしてサイコロをふる</div>';
   return h;
 }
 
 function render(){
   for(let i=0;i<2;i++){
     $('sidebody'+i).innerHTML=sideHTML(i);
-    $('side'+i).classList.toggle('active', !G.over && G.rouletteDone && G.turn===i);
+    const el=$('side'+i);
+    el.classList.toggle('active', !G.over && G.rouletteDone && G.turn===i);
+    const rollable=canRoll(i);
+    el.classList.toggle('rollable', rollable);
+    el.onclick = rollable ? rollDice : null;
   }
   const handEl=$('hand');
   handEl.innerHTML='';
@@ -800,11 +805,7 @@ function render(){
   const cur = G.players[curIdx];
   if(!cur){ setActions([]); return; }
 
-  if(G.phase==='action' && !cur.cpu){
-    setActions([{label:'🎲 サイコロを振る', cls:'primary', fn:rollDice}]);
-  }else{
-    setActions([]);
-  }
+  setActions([]);   // サイコロはパネルのタップで振る
 
   if(!cur.cpu && inDeploy){
     cur.hand.forEach((c,i)=>{
