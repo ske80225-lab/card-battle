@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="カードバトル">
+<title>カードバトル</title>
+<link rel="apple-touch-icon" sizes="180x180" href="icon_thum.png">
+<link rel="icon" type="image/png" href="icon_thum.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap');
+  :root{
+    --bg:#e8e8e8;--bg2:#f0f0f0;--ink:#333333;--ink-soft:#666666;
+    --card:#ffffff;--line:#d8d8d8;--accent:#d5382f;--accent2:#3b5ca8;
+    --atk:#ff6b6b;--hp:#51cf66;--def:#4dabf7;--spd:#ffd43b;--int:#cc5de8;
+    --shadow:0 2px 8px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'M PLUS Rounded 1c','Hiragino Maru Gothic Pro','ヒラギノ丸ゴ Pro',sans-serif;
+    color:var(--ink);background:var(--bg);min-height:100vh;padding:14px;
+  }
+  .wrap{max-width:980px;margin:0 auto;}
+
+  /* ===== 共通パーツ ===== */
+  h1{font-size:22px;font-weight:800;margin:0;letter-spacing:.04em;line-height:0;}
+  h1 img{height:40px;width:auto;display:block;}
+  @media(min-width:560px){h1 img{height:48px;}}
+  .topbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+  .spacer{flex:1;}
+  select,button{font:inherit;font-family:inherit;}
+  select{background:var(--card);color:var(--ink);border:1px solid var(--line);
+    border-radius:10px;padding:8px 10px;font-weight:700;box-shadow:var(--shadow);}
+  button{color:var(--ink);background:var(--card);border:1px solid var(--line);font-weight:700;
+    border-radius:10px;padding:9px 14px;cursor:pointer;transition:transform .12s ease,background .15s;box-shadow:var(--shadow);}
+  button:active:not(:disabled){transform:scale(.96);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+  button.move{background:#fff5f4;border-color:#f0c9c6;text-align:left;}
+  .dnum{display:inline-block;min-width:17px;height:17px;line-height:17px;text-align:center;
+    border-radius:5px;background:var(--accent);color:#fff;font-size:11px;font-weight:800;margin-right:4px;}
+  .hidden{display:none!important;}
+
+  /* ===== ローディング / エラー ===== */
+  .banner{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:20px;text-align:center;
+    font-weight:700;color:var(--ink-soft);line-height:1.7;}
+  .banner.err{color:var(--accent);}
+
+  /* ===== デッキ選択画面 ===== */
+  /* 画面上部に追従固定するカウンター */
+  .draft-sticky{position:sticky;top:0;z-index:20;background:var(--bg);padding:8px 0 10px;margin-bottom:4px;}
+  .draft-head{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:10px 12px;}
+  .draft-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .draft-turn{font-size:14px;font-weight:800;display:flex;align-items:center;gap:7px;flex-wrap:wrap;flex:1;min-width:0;}
+  .draft-turn .who{padding:3px 11px;border-radius:99px;background:var(--accent);color:#fff;font-size:13px;flex:none;}
+  .draft-turn .who.p2{background:var(--accent2);}
+  .draft-sub{font-size:12px;color:var(--ink-soft);line-height:1.6;margin:0 2px 10px;}
+  #btnAuto{flex:none;padding:7px 12px;font-size:13px;}
+  .counters{display:flex;gap:8px;margin-top:8px;}
+  .counter{flex:1;min-width:0;background:var(--bg2);border-radius:10px;padding:6px 9px;}
+  .counter .headline{display:flex;align-items:baseline;gap:6px;justify-content:space-between;}
+  .counter .lab{font-size:11px;color:var(--ink-soft);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .counter .num{font-size:15px;font-weight:800;flex:none;}
+  .counter .bar{height:7px;background:#e0e0e0;border-radius:99px;overflow:hidden;margin-top:4px;}
+  .counter .fill{height:100%;background:var(--accent);transition:width .3s;}
+  .counter.p2 .fill{background:var(--accent2);}
+
+  .roster{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+  @media(min-width:560px){.roster{grid-template-columns:repeat(3,1fr);}}
+  @media(min-width:820px){.roster{grid-template-columns:repeat(4,1fr);}}
+  .rcard{background:var(--card);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;
+    cursor:pointer;transition:transform .12s ease;display:flex;flex-direction:column;position:relative;border:2px solid transparent;}
+  .rcard:active{transform:scale(.97);}
+  .rcard.locked{opacity:.45;cursor:not-allowed;}
+  .rcard.locked:active{transform:none;}
+  .rcard.picked{border-color:var(--accent);}
+  .rcard.picked2{border-color:var(--accent2);}
+  .rcard.full{opacity:.5;cursor:not-allowed;}
+  .rcard.full:active{transform:none;}
+  .rcard .thumb{aspect-ratio:4/3;background:#e9e9e9;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .rcard .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .rcard .thumb .ph{font-size:32px;opacity:.5;}
+  .rcard .body{padding:8px 10px 10px;}
+  .rcard .num{font-size:10px;color:var(--ink-soft);font-weight:700;}
+  .rcard .name{font-weight:800;font-size:14px;margin:2px 0 4px;line-height:1.2;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rcard .hp{font-size:11px;font-weight:700;color:var(--ink-soft);}
+  .rcard .mv{font-size:10px;color:var(--ink-soft);line-height:1.6;margin-top:4px;}
+  .rcard .note{font-size:10px;color:var(--accent);font-weight:700;margin-top:4px;}
+  .badge{position:absolute;top:6px;right:6px;min-width:24px;height:24px;line-height:24px;text-align:center;
+    border-radius:99px;background:var(--accent);color:#fff;font-size:12px;font-weight:800;padding:0 6px;
+    box-shadow:0 2px 6px rgba(0,0,0,.2);}
+  .badge.p2{background:var(--accent2);top:6px;right:auto;left:6px;}
+
+  /* ===== バトル画面 ===== */
+  .board{display:grid;grid-template-columns:1fr 180px 1fr;gap:12px;align-items:start;}
+  @media(max-width:820px){.board{grid-template-columns:1fr;}}
+  .side{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px;border:2px solid transparent;position:relative;}
+  /* ダメージ数字のポップアップ（ドラクエ風に跳ねる） */
+  .poplayer{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:5;}
+  .dmgpop{position:absolute;font-size:46px;font-weight:800;line-height:1;white-space:nowrap;
+    color:#fff;-webkit-text-stroke:4px var(--accent);paint-order:stroke fill;
+    text-shadow:0 4px 0 rgba(0,0,0,.22);will-change:transform,opacity;
+    animation:dmgpop 1.15s cubic-bezier(.22,.9,.3,1) forwards;}
+  .dmgpop.self{-webkit-text-stroke-color:#8a4b00;}
+  @keyframes dmgpop{
+    0%  {transform:translate(-50%,6px) scale(.3);opacity:0;}
+    10% {transform:translate(-50%,-42px) scale(1.3);opacity:1;}
+    26% {transform:translate(-50%,0) scale(1);}
+    38% {transform:translate(-50%,-20px) scale(1.06);}
+    52% {transform:translate(-50%,0) scale(1);}
+    62% {transform:translate(-50%,-7px) scale(1.02);}
+    72% {transform:translate(-50%,0) scale(1);}
+    86% {transform:translate(-50%,0) scale(1);opacity:1;}
+    100%{transform:translate(-50%,-14px) scale(.95);opacity:0;}
+  }
+  /* ダメージを受けたカードが揺れる */
+  .bcard.hit{animation:cardhit .42s ease;}
+  @keyframes cardhit{
+    0%,100%{transform:translateX(0);}
+    15%{transform:translateX(-7px);} 30%{transform:translateX(6px);}
+    45%{transform:translateX(-4px);} 60%{transform:translateX(3px);} 80%{transform:translateX(-2px);}
+  }
+  .side.active{border-color:var(--accent);}
+  .side h2{font-size:15px;font-weight:800;margin:0 0 8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--bg2);color:var(--ink-soft);}
+  .tag.turn{background:var(--accent);color:#fff;}
+
+  /* 場のキャラ：デッキ選択と同じ縦型カード */
+  .bcard{background:var(--bg2);border-radius:12px;overflow:hidden;max-width:250px;margin:0 auto;}
+  .bthumb{width:100%;aspect-ratio:4/3;background:#e2e2e2;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .bthumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .bthumb .ph{font-size:36px;opacity:.5;}
+  .bbody{padding:9px 11px 11px;}
+  .bcard .nm{font-size:16px;font-weight:800;line-height:1.25;}
+  .hpbar{height:10px;background:#e0e0e0;border-radius:99px;overflow:hidden;margin-top:6px;}
+  .hpfill{height:100%;background:var(--hp);transition:width .35s;}
+  .hpfill.low{background:var(--atk);}
+  .hptxt{font-size:12px;color:var(--ink-soft);font-weight:700;margin-top:5px;}
+  .moves{margin-top:7px;font-size:12px;color:var(--ink-soft);line-height:1.8;}
+  .empty{background:var(--bg2);border-radius:12px;max-width:250px;margin:0 auto;min-height:150px;
+    display:flex;align-items:center;justify-content:center;color:var(--ink-soft);font-weight:700;font-size:13px;}
+
+  .meta{display:flex;gap:6px;margin-top:10px;font-size:11px;color:var(--ink-soft);flex-wrap:wrap;font-weight:700;}
+  .pill{background:var(--bg2);border-radius:8px;padding:4px 8px;}
+  .losses{display:flex;gap:3px;margin-top:6px;flex-wrap:wrap;}
+  .dot{width:11px;height:11px;border-radius:50%;background:#e0e0e0;}
+  .dot.on{background:var(--accent);}
+
+  .center{display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:24px;}
+  .dice{width:92px;height:92px;border-radius:18px;background:var(--card);color:var(--ink);
+    display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:800;box-shadow:var(--shadow);}
+  .dice.rolling{animation:sh .12s infinite;}
+  @keyframes sh{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(-3px,2px) rotate(-6deg)}
+  75%{transform:translate(3px,-2px) rotate(6deg)}100%{transform:translate(0,0) rotate(0)}}
+  .verdict{font-size:13px;font-weight:700;text-align:center;min-height:18px;}
+  .verdict.hit{color:#2f9e44;} .verdict.miss{color:var(--accent);}
+
+  .panelbox{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px;margin-top:14px;}
+  .msg{font-size:15px;font-weight:800;margin-bottom:10px;min-height:22px;}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .hand{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .hcard{width:124px;background:var(--bg2);border-radius:10px;overflow:hidden;
+    font-size:11px;cursor:pointer;transition:transform .12s ease;border:2px solid transparent;}
+  .hcard:active{transform:scale(.96);}
+  .hcard.dim{opacity:.35;cursor:not-allowed;}
+  .hcard.dim:active{transform:none;}
+  .hcard .hthumb{width:100%;aspect-ratio:4/3;background:#e2e2e2;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .hcard .hthumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .hcard .hb{padding:6px 8px 8px;}
+  .hcard .t{font-size:12px;font-weight:800;margin-bottom:3px;line-height:1.2;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hcard .k{font-size:10px;color:var(--ink-soft);line-height:1.6;}
+
+  .log{margin-top:14px;background:var(--card);border-radius:14px;box-shadow:var(--shadow);
+    padding:10px 12px;height:150px;overflow-y:auto;font-size:12px;line-height:1.9;color:var(--ink-soft);}
+  .log b{color:var(--ink);}
+  .log .hl{color:var(--accent);font-weight:800;}
+
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);
+    display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:50;padding:20px;}
+  .ovbox{background:var(--card);border-radius:22px;box-shadow:0 8px 40px rgba(0,0,0,.2);
+    padding:28px 24px;text-align:center;max-width:420px;width:100%;}
+  .ovbox h2{font-size:30px;font-weight:800;margin:0 0 8px;}
+  .ovbox p{margin:0 0 18px;color:var(--ink-soft);font-size:13px;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <h1><img src="CB_title@2x.png" alt="カードバトル"></h1>
+    <span class="spacer"></span>
+    <select id="mode">
+      <option value="cpu">1人プレイ（VS CPU）</option>
+      <option value="2p">2人交互プレイ</option>
+    </select>
+    <button id="restart">はじめから</button>
+  </div>
+
+  <!-- ローディング / エラー -->
+  <div id="loading" class="banner">図鑑からキャラクターをよみこんでいます…</div>
+
+  <!-- ===== デッキ選択画面 ===== -->
+  <div id="screenDraft" class="hidden">
+    <div class="draft-sticky">
+      <div class="draft-head">
+        <div class="draft-row">
+          <div class="draft-turn" id="draftTurn"></div>
+          <button id="btnAuto" class="primary">🎲 おまかせ</button>
+        </div>
+        <div class="counters">
+          <div class="counter" id="cnt0">
+            <div class="headline"><span class="lab" id="cnt0lab"></span><span class="num" id="cnt0num"></span></div>
+            <div class="bar"><div class="fill" id="cnt0fill"></div></div>
+          </div>
+          <div class="counter p2" id="cnt1">
+            <div class="headline"><span class="lab" id="cnt1lab"></span><span class="num" id="cnt1num"></span></div>
+            <div class="bar"><div class="fill" id="cnt1fill"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="draft-sub" id="draftSub"></div>
+    <div class="roster" id="roster"></div>
+  </div>
+
+  <!-- ===== バトル画面 ===== -->
+  <div id="screenBattle" class="hidden">
+    <div class="board">
+      <div class="side" id="side0"><div id="sidebody0"></div><div class="poplayer" id="pop0"></div></div>
+      <div class="center">
+        <div class="dice" id="dice">–</div>
+        <div class="verdict" id="verdict"></div>
+      </div>
+      <div class="side" id="side1"><div id="sidebody1"></div><div class="poplayer" id="pop1"></div></div>
+    </div>
+    <div class="panelbox">
+      <div class="msg" id="msg"></div>
+      <div class="actions" id="actions"></div>
+      <div class="hand" id="hand"></div>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="ovbox">
+    <h2 id="ovTitle"></h2>
+    <p id="ovSub"></p>
+    <button class="primary" id="ovBtn">デッキを組みなおす</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, getDocs, query, orderBy }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+/* ===================== 図鑑（Firebase）から読み込み ===================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyAU8oGcnd98M0M3PySwyCDjfkG2Ca6_Qcg",
+  authDomain: "riku-zukan.firebaseapp.com",
+  projectId: "riku-zukan",
+  storageBucket: "riku-zukan.firebasestorage.app",
+  messagingSenderId: "484322593068",
+  appId: "1:484322593068:web:afa4675a2b217e3b56c489"
+};
+const COL = 'characters';
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, m =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+/* 図鑑のドキュメント → バトル用キャラ定義 */
+function toBattleChar(d, i){
+  const moves = (Array.isArray(d.moves) ? d.moves : [])
+    .filter(m => m && m.name)
+    .slice(0,4)
+    .map(m => ({ n:String(m.name), p:parseInt(m.damage,10)||0 }));
+  const maxHp = parseInt(d.maxHp,10) || 0;
+  return {
+    idx: i,
+    no: d.no!=null ? d.no : (i+1),
+    name: d.name || '（なまえなし）',
+    imageUrl: d.imageUrl || '',
+    maxHp, moves,
+    playable: moves.length > 0 && maxHp > 0
+  };
+}
+
+let ROSTER = [];
+
+async function loadRoster(){
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+  let snap;
+  try{
+    snap = await getDocs(query(collection(db, COL), orderBy('createdAt','asc')));
+  }catch(e){
+    snap = await getDocs(collection(db, COL));
+  }
+  const list = [];
+  snap.forEach(doc => list.push(doc.data()));
+  ROSTER = list.map(toBattleChar);
+}
+
+/* ===================== ルール定数 ===================== */
+const DECK_SIZE = 20;     // 1人ぶんのデッキ枚数（すべてキャラ）
+const MAX_COPIES = 2;     // おなじキャラをデッキに入れられる上限
+const HAND_START = 4;     // さいしょの手札
+const MAX_LOSS = 10;      // これだけ負けたらゲームオーバー
+
+/* ===================== ユーティリティ ===================== */
+let uid = 0;
+const shuffle = a => { for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];} return a; };
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+function makeChar(def){
+  return { uid:++uid, kind:'char', name:def.name, imageUrl:def.imageUrl,
+           maxHp:def.maxHp, hp:def.maxHp, moves:def.moves.map(m=>({n:m.n,p:m.p})) };
+}
+/* わざ名に「自爆」がふくまれていたら自爆わざ（使うと自分もたおれる） */
+const SELF_DESTRUCT = /自爆|じばく|ジバク/;
+function isSelfDestruct(name){ return SELF_DESTRUCT.test(String(name||'')); }
+function moveLabel(m){ return (isSelfDestruct(m.n) ? '💣' : '') + esc(m.n); }
+
+function thumbHTML(c){
+  return c.imageUrl
+    ? '<img src="'+esc(c.imageUrl)+'" alt="">'
+    : '<span class="ph">🃏</span>';
+}
+function showScreen(name){
+  $('loading').classList.toggle('hidden', name!=='loading');
+  $('screenDraft').classList.toggle('hidden', name!=='draft');
+  $('screenBattle').classList.toggle('hidden', name!=='battle');
+}
+
+/* ===================== デッキ選択（交互ドラフト） ===================== */
+let D = null;
+
+function startDraft(mode){
+  hideOverlay();
+  D = { mode, turn:0, picks:[[],[]], busy:false,
+        names:['プレイヤー1', mode==='cpu' ? 'CPU' : 'プレイヤー2'] };
+  showScreen('draft');
+  renderDraft();
+  maybeCpuPick();
+}
+
+/* 実際に組めるデッキ枚数（使えるキャラ×2 が20に足りないときは自動で減らす） */
+function deckSize(){
+  const pool = ROSTER.filter(c=>c.playable).length;
+  return Math.min(DECK_SIZE, pool * MAX_COPIES);
+}
+function draftDone(){ const n=deckSize(); return D.picks[0].length>=n && D.picks[1].length>=n; }
+
+/* そのプレイヤーがまだ入れられるキャラ（同じキャラは MAX_COPIES 体まで） */
+function copiesOf(pi, idx){ return D.picks[pi].filter(x=>x.idx===idx).length; }
+function availableFor(pi){
+  return ROSTER.filter(c=>c.playable && copiesOf(pi, c.idx) < MAX_COPIES);
+}
+/* CPUの選び方：強い順の上位からランダム */
+function cpuChoice(pi){
+  const pool=availableFor(pi);
+  if(!pool.length) return null;
+  const scored=pool.map(c=>({c, v:c.maxHp + Math.max(...c.moves.map(m=>m.p))*2}))
+                   .sort((a,b)=>b.v-a.v);
+  const top=scored.slice(0, Math.max(3, Math.ceil(scored.length*0.4)));
+  return top[(Math.random()*top.length)|0].c;
+}
+/* おまかせ：完全ランダム */
+function randomChoice(pi){
+  const pool=availableFor(pi);
+  return pool.length ? pool[(Math.random()*pool.length)|0] : null;
+}
+function fillDeck(pi, chooser){
+  const n=deckSize();
+  while(D.picks[pi].length < n){
+    const c=chooser(pi);
+    if(!c) break;
+    D.picks[pi].push(c);
+  }
+}
+
+function pickChar(i){
+  if(!D || D.busy || draftDone()) return;
+  const c = ROSTER[i];
+  if(!c || !c.playable) return;
+  if(copiesOf(D.turn, i) >= MAX_COPIES) return;   // 同じキャラは2体まで
+  D.picks[D.turn].push(c);
+  D.turn = 1 - D.turn;
+  if(draftDone()){ renderDraft(); setTimeout(()=>beginBattle(), 400); return; }
+  renderDraft();
+  maybeCpuPick();
+}
+
+/* おまかせ：いまのプレイヤーの残りを自動でうめる */
+function autoFillCurrent(){
+  if(!D || D.busy || draftDone()) return;
+  const pi = D.turn;
+  fillDeck(pi, randomChoice);
+  D.turn = 1 - pi;
+  // 相手がCPUなら相手ぶんも一気にうめる
+  if(D.mode==='cpu' && D.turn===1){ fillDeck(1, cpuChoice); }
+  if(draftDone()){ renderDraft(); setTimeout(()=>beginBattle(), 600); return; }
+  renderDraft();
+  maybeCpuPick();
+}
+
+function maybeCpuPick(){
+  if(D.mode!=='cpu' || D.turn!==1 || draftDone()) return;
+  D.busy = true; renderDraft();
+  setTimeout(()=>{
+    const chosen = cpuChoice(1);
+    D.busy = false;
+    if(!chosen){ renderDraft(); return; }
+    D.picks[1].push(chosen);
+    D.turn = 0;
+    if(draftDone()){ renderDraft(); setTimeout(()=>beginBattle(), 400); return; }
+    renderDraft();
+  }, 550);
+}
+
+function renderDraft(){
+  const cur = D.turn;
+  const n = deckSize();
+  const playable = ROSTER.filter(c=>c.playable).length;
+
+  if(draftDone()){
+    $('draftTurn').innerHTML = '<span>デッキがそろいました！</span>';
+    $('btnAuto').disabled = true;
+  } else if(D.busy){
+    $('draftTurn').innerHTML = '<span class="who p2">'+esc(D.names[1])+'</span><span>がえらんでいます…</span>';
+    $('btnAuto').disabled = true;
+  } else {
+    $('draftTurn').innerHTML = '<span class="who'+(cur===1?' p2':'')+'">'+esc(D.names[cur])+'</span>'
+      + '<span>のばん — キャラを1体えらぶ</span>';
+    $('btnAuto').disabled = false;
+  }
+
+  let sub = '交互に1体ずつえらんで、'+n+'体のデッキを作ります。'
+    + 'おなじキャラは'+MAX_COPIES+'体まで。相手とかぶってもOK。'
+    + '「おまかせ」をおすと、のこりを自動でえらびます。'
+    + '（使えるキャラ：'+playable+' / '+ROSTER.length+'体）';
+  if(n < DECK_SIZE) sub += ' ※使えるキャラが少ないため、デッキは'+n+'体になります。';
+  $('draftSub').textContent = draftDone() ? 'バトルをはじめます…' : sub;
+
+  for(let i=0;i<2;i++){
+    $('cnt'+i+'lab').textContent = D.names[i];
+    $('cnt'+i+'num').textContent = D.picks[i].length + ' / ' + n;
+    $('cnt'+i+'fill').style.width = (D.picks[i].length/n*100)+'%';
+  }
+
+  const el = $('roster');
+  if(!ROSTER.length){
+    el.innerHTML = '<div class="banner">図鑑にキャラクターがいません。</div>';
+    return;
+  }
+  el.innerHTML = '';
+  ROSTER.forEach((c,i)=>{
+    const n0 = copiesOf(0,i), n1 = copiesOf(1,i);
+    const full = c.playable && copiesOf(cur,i) >= MAX_COPIES;
+    const selectable = c.playable && !full && !D.busy && !draftDone();
+    const d = document.createElement('div');
+    d.className = 'rcard' + (c.playable ? '' : ' locked') + (full ? ' full' : '')
+      + (n0 ? ' picked' : (n1 ? ' picked2' : ''));
+    let h = '<div class="thumb">'+thumbHTML(c)+'</div><div class="body">'
+      + '<div class="num">No.'+esc(c.no)+'</div>'
+      + '<div class="name">'+esc(c.name)+'</div>';
+    if(c.playable){
+      h += '<div class="hp">❤️ HP '+c.maxHp+'</div>'
+        + '<div class="mv">' + c.moves.map((m,j)=>'<span class="dnum">'+(j+1)+'</span>'+moveLabel(m)+'（'+m.p+'）').join('<br>') + '</div>';
+      if(full) h += '<div class="note">もう'+MAX_COPIES+'体えらんでいます</div>';
+    }else{
+      h += '<div class="note">HPかわざが みにゅうりょくです</div>';
+    }
+    h += '</div>';
+    if(n0) h += '<span class="badge">P1×'+n0+'</span>';
+    if(n1) h += '<span class="badge p2">'+(D.mode==='cpu'?'CPU':'P2')+'×'+n1+'</span>';
+    d.innerHTML = h;
+    if(selectable) d.onclick = ()=>pickChar(i);
+    el.appendChild(d);
+  });
+}
+
+/* ===================== バトル本体 ===================== */
+let G = null;
+
+function beginBattle(){
+  const mode = D.mode;
+  G = {
+    mode,
+    players:[
+      {name:D.names[0], cpu:false,          deck:shuffle(D.picks[0].map(makeChar)), hand:[], active:null, losses:0},
+      {name:D.names[1], cpu:mode==='cpu',   deck:shuffle(D.picks[1].map(makeChar)), hand:[], active:null, losses:0}
+    ],
+    first:0, turn:0, rouletteDone:false, phase:'setup', busy:false, over:false,
+    deployIdx:null, redeployQueue:[], log:[]
+  };
+  showScreen('battle');
+  hideOverlay();
+  $('log').innerHTML='';
+  logMsg('--- ゲーム開始 ---');
+  for(const p of G.players){ for(let i=0;i<HAND_START;i++) drawCard(p); }
+  logMsg('両者、山札から'+HAND_START+'枚ドローした。');
+  G.phase='deploy'; G.deployIdx=0;
+  render(); stepDeploy();
+}
+
+function drawCard(p){
+  if(p.deck.length===0) return null;
+  const c = p.deck.pop(); p.hand.push(c); return c;
+}
+
+/* ---- 配置フェーズ ---- */
+function stepDeploy(){
+  while(G.deployIdx<2 && G.players[G.deployIdx].active) G.deployIdx++;
+  if(G.deployIdx>=2){ startRoulette(); return; }
+  const p = G.players[G.deployIdx];
+  while(!p.hand.some(c=>c.kind==='char')){
+    if(p.deck.length===0){ endGame(1-G.deployIdx, p.name+'は出せるキャラがいない（山札切れ）'); return; }
+    drawCard(p);
+    logMsg(p.name+'は場に出すキャラがいないので1枚ドローした。');
+  }
+  if(p.cpu){ deploy(G.deployIdx, bestCharIndex(p)); }
+  else{
+    G.phase='deploy';
+    setMsg(p.name+'：場に出すキャラクターをえらんでください');
+    render();
+  }
+}
+function bestCharIndex(p){
+  let bi=-1,bv=-1;
+  p.hand.forEach((c,i)=>{ if(c.kind==='char'){ const v=c.maxHp + Math.max(...c.moves.map(m=>m.p))*2; if(v>bv){bv=v;bi=i;} }});
+  return bi;
+}
+function deploy(pi, handIdx){
+  const p=G.players[pi];
+  const c=p.hand.splice(handIdx,1)[0];
+  c.hp=c.maxHp; p.active=c;
+  logMsg('<b>'+esc(p.name)+'</b>は <span class="hl">'+esc(c.name)+'</span>（HP'+c.maxHp+'）を場に出した！');
+  G.deployIdx=pi+1;
+  render();
+  stepDeploy();
+}
+
+/* ---- 先攻後攻ルーレット ---- */
+async function startRoulette(){
+  G.phase='roulette'; G.busy=true;
+  setMsg('先攻・後攻をルーレットで決めます…');
+  setActions([]); render();
+  const el=$('dice');
+  el.classList.add('rolling');
+  for(let i=0;i<14;i++){ el.textContent=(i%2===0)?'1':'2'; await sleep(70); }
+  el.classList.remove('rolling');
+  G.first=(Math.random()<0.5)?0:1;
+  G.turn=G.first; G.rouletteDone=true;
+  el.textContent='🎯';
+  logMsg('ルーレットの結果、<span class="hl">'+esc(G.players[G.first].name)+'</span>が先攻！');
+  setVerdict('先攻：'+G.players[G.first].name,'hit');
+  await sleep(700);
+  G.busy=false;
+  beginTurn();
+}
+
+/* ---- ターン ---- */
+function beginTurn(){
+  if(G.over) return;
+  G.phase='action';
+  const p=G.players[G.turn];
+  setVerdict('');
+  $('dice').textContent='–';
+  setMsg(p.name+'のターン');
+  render();
+  if(p.cpu){ G.busy=true; setTimeout(cpuTurn, 800); }
+}
+function endTurn(){
+  if(G.over) return;
+  G.turn=1-G.turn; G.busy=false;
+  beginTurn();
+}
+
+async function rollDice(){
+  if(G.busy && !G.players[G.turn].cpu) return;
+  G.busy=true; setActions([]); render();
+  const p=G.players[G.turn];
+  const el=$('dice');
+  el.classList.add('rolling');
+  for(let i=0;i<12;i++){ el.textContent=(Math.random()*6|0)+1; await sleep(65); }
+  el.classList.remove('rolling');
+
+  const d=(Math.random()*6|0)+1;
+  el.textContent=d;
+
+  if(d<=4){
+    const mv=p.active.moves[d-1];
+    if(mv){
+      setVerdict(d+' → '+mv.n+'！','hit');
+      logMsg('<b>'+esc(p.name)+'</b>はサイコロで <span class="hl">'+d+'</span> を出した → 「'+esc(mv.n)+'」！');
+      await sleep(650);
+      useMove(d-1);
+    }else{
+      setVerdict(d+' → 番号'+d+'のわざがない…','miss');
+      logMsg('<b>'+esc(p.name)+'</b>はサイコロで <span class="hl">'+d+'</span>… '+esc(p.active.name)+'に番号'+d+'のわざはない。');
+      await sleep(900);
+      endTurn();
+    }
+  }else{
+    setVerdict(d+' → わざが出せない…','miss');
+    logMsg('<b>'+esc(p.name)+'</b>はサイコロで <span class="hl">'+d+'</span>… わざが出せなかった。');
+    await sleep(900);
+    endTurn();
+  }
+}
+
+async function useMove(mi){
+  G.phase='resolve'; G.busy=true; setActions([]); render();
+  const ai=G.turn, di=1-G.turn;
+  const atk=G.players[ai], def=G.players[di];
+  const mv=atk.active.moves[mi];
+  const dmg=mv.p;
+  def.active.hp=Math.max(0, def.active.hp-dmg);
+  logMsg('<b>'+esc(atk.name)+'</b>の '+esc(atk.active.name)+' → 「'+moveLabel(mv)+'」！ '
+    +esc(def.active.name)+'に <span class="hl">'+dmg+'</span> ダメージ');
+  setMsg(mv.n+'！');
+  render();
+  popDamage(di, dmg);
+  await sleep(1250);
+
+  // 自爆わざ：使ったキャラも消滅する
+  if(isSelfDestruct(mv.n)){
+    const selfDmg=atk.active.hp;
+    atk.active.hp=0;
+    logMsg('💣 <b>'+esc(atk.name)+'</b>の '+esc(atk.active.name)+' は自爆した！ 自分も消滅する！');
+    setMsg(atk.active.name+' は自爆した！');
+    render();
+    popDamage(ai, selfDmg, true);
+    await sleep(1250);
+  }
+
+  const losers=[];
+  if(def.active && def.active.hp<=0) losers.push(di);
+  if(atk.active && atk.active.hp<=0) losers.push(ai);
+  if(losers.length){ await knockOut(losers); }
+  else{ endTurn(); }
+}
+
+async function knockOut(loserIdxs){
+  if(!Array.isArray(loserIdxs)) loserIdxs=[loserIdxs];
+  const fallen=[];
+  for(const i of loserIdxs){
+    const L=G.players[i];
+    if(!L.active) continue;
+    L.losses++;
+    fallen.push(L.active.name);
+    logMsg('💥 <b>'+esc(L.name)+'</b>の '+esc(L.active.name)+' はたおれた！ 負けカウント <span class="hl">'+L.losses+'/'+MAX_LOSS+'</span>');
+    L.active=null;
+  }
+  setMsg(fallen.join(' と ')+' はたおれた！');
+  render();
+  await sleep(1100);
+
+  // 決着チェック（同時に上限に達したら引き分け）
+  const out=[0,1].filter(i=>G.players[i].losses>=MAX_LOSS);
+  if(out.length===2){ endGame(-1, 'ふたりとも'+MAX_LOSS+'回負けた'); return; }
+  if(out.length===1){ endGame(1-out[0], G.players[out[0]].name+'は'+MAX_LOSS+'回負けた'); return; }
+
+  // たおれた側は山札から1枚ドロー
+  let drew=false;
+  for(const i of loserIdxs){
+    const L=G.players[i];
+    if(L.deck.length>0){
+      drawCard(L); drew=true;
+      logMsg('<b>'+esc(L.name)+'</b>は山札から1枚ドローした。（のこり'+L.deck.length+'枚）');
+    }
+  }
+  if(drew){ render(); await sleep(600); }
+
+  // 出せるキャラがいなければ山札切れで敗北
+  for(const i of loserIdxs){
+    const L=G.players[i];
+    while(!L.hand.some(c=>c.kind==='char')){
+      if(L.deck.length===0){ endGame(1-i, L.name+'は出せるキャラがいない（山札切れ）'); return; }
+      drawCard(L);
+      logMsg('<b>'+esc(L.name)+'</b>は場に出すキャラがいないので1枚ドローした。');
+    }
+  }
+
+  // 再配置（自爆で両者たおれた場合は順番に出す）
+  G.redeployQueue = loserIdxs.slice();
+  G.busy=false;
+  stepRedeploy();
+}
+
+/* たおれたプレイヤーが順番に次のキャラを出す → そろったら先攻からターン再開 */
+function stepRedeploy(){
+  if(G.over) return;
+  while(G.redeployQueue.length && G.players[G.redeployQueue[0]].active) G.redeployQueue.shift();
+  if(!G.redeployQueue.length){
+    G.deployIdx=null;
+    // 新しいキャラを出しただけではターンは終わらない。
+    // 攻撃したプレイヤーのターンが終わり、次のプレイヤーがサイコロを振る。
+    G.turn=1-G.turn; G.busy=false;
+    render();
+    setTimeout(beginTurn, 500);
+    return;
+  }
+  const pi=G.redeployQueue[0], p=G.players[pi];
+  if(p.cpu){ doRedeploy(pi, bestCharIndex(p)); return; }
+  G.phase='deploy'; G.deployIdx=pi; G.busy=false;
+  setMsg(p.name+'：次に場に出すキャラクターをえらんでください');
+  render();
+}
+function doRedeploy(pi, handIdx){
+  const p=G.players[pi];
+  const c=p.hand.splice(handIdx,1)[0];
+  c.hp=c.maxHp; p.active=c;
+  logMsg('<b>'+esc(p.name)+'</b>は <span class="hl">'+esc(c.name)+'</span>（HP'+c.maxHp+'）を場に出した！');
+  G.redeployQueue.shift();
+  render();
+  setTimeout(stepRedeploy, 400);
+}
+
+function endGame(winnerIdx, reason){
+  G.over=true; G.phase='over'; G.busy=true;
+  G.redeployQueue=[];
+  const title = (winnerIdx<0) ? '引き分け！' : (G.players[winnerIdx].name+' の勝ち！');
+  logMsg((winnerIdx<0?'🤝 <b>引き分け</b>':'🏆 <b>'+esc(G.players[winnerIdx].name)+'</b>の勝ち！')+'（'+esc(reason)+'）');
+  render();
+  setTimeout(()=>showOverlay(title, reason+' — デッキはリセットされます'), 700);
+}
+
+/* ===================== 描画 ===================== */
+function setMsg(t){ $('msg').textContent=t; }
+function setVerdict(t,cls){ const e=$('verdict'); e.textContent=t||''; e.className='verdict'+(cls?' '+cls:''); }
+function logMsg(html){ G.log.push(html); const el=$('log');
+  el.innerHTML=G.log.map(l=>'<div>'+l+'</div>').join(''); el.scrollTop=el.scrollHeight; }
+function setActions(list){
+  const el=$('actions'); el.innerHTML='';
+  list.forEach(a=>{ const b=document.createElement('button'); b.className=a.cls||''; b.innerHTML=a.label;
+    b.disabled=!!a.disabled; b.onclick=a.fn; el.appendChild(b); });
+}
+
+/* ダメージ数字をキャラの絵のあたりにポップアップさせる */
+function popDamage(pi, n, self){
+  const side=$('side'+pi), layer=$('pop'+pi);
+  if(!side||!layer) return;
+  const card=side.querySelector('.bcard');
+  const anchor=side.querySelector('.bthumb')||card||side;
+  const sr=side.getBoundingClientRect(), ar=anchor.getBoundingClientRect();
+  const el=document.createElement('div');
+  el.className='dmgpop'+(self?' self':'');
+  el.textContent=n;
+  el.style.left=(ar.left-sr.left+ar.width/2)+'px';
+  el.style.top =(ar.top -sr.top +ar.height*0.52)+'px';
+  layer.appendChild(el);
+  if(card){ card.classList.remove('hit'); void card.offsetWidth; card.classList.add('hit'); }
+  setTimeout(()=>el.remove(), 1300);
+}
+
+function sideHTML(pi){
+  const p=G.players[pi];
+  const isTurn = !G.over && G.rouletteDone && G.turn===pi;
+  let h='<h2>'+esc(p.name);
+  if(G.rouletteDone && G.first===pi) h+='<span class="tag">先攻</span>';
+  if(isTurn) h+='<span class="tag turn">TURN</span>';
+  h+='</h2>';
+  if(p.active){
+    const a=p.active, r=a.hp/a.maxHp;
+    h+='<div class="bcard"><div class="bthumb">'+thumbHTML(a)+'</div><div class="bbody">'
+      +'<div class="nm">'+esc(a.name)+'</div>'
+      +'<div class="hpbar"><div class="hpfill'+(r<0.35?' low':'')+'" style="width:'+(r*100)+'%"></div></div>'
+      +'<div class="hptxt">HP '+a.hp+' / '+a.maxHp+'</div>'
+      +'<div class="moves">'+a.moves.map((m,i)=>'<span class="dnum">'+(i+1)+'</span>'+moveLabel(m)+'（'+m.p+'）').join('<br>')+'</div>'
+      +'</div></div>';
+  }else{
+    h+='<div class="empty">場にキャラがいません</div>';
+  }
+  h+='<div class="meta"><span class="pill">山札 '+p.deck.length+'枚</span><span class="pill">手札 '+p.hand.length+'枚</span>'
+    +'<span class="pill">負け '+p.losses+' / '+MAX_LOSS+'</span></div><div class="losses">';
+  for(let i=0;i<MAX_LOSS;i++) h+='<span class="dot'+(i<p.losses?' on':'')+'"></span>';
+  h+='</div>';
+  return h;
+}
+
+function render(){
+  for(let i=0;i<2;i++){
+    $('sidebody'+i).innerHTML=sideHTML(i);
+    $('side'+i).classList.toggle('active', !G.over && G.rouletteDone && G.turn===i);
+  }
+  const handEl=$('hand');
+  handEl.innerHTML='';
+  if(G.over){ setActions([]); return; }
+
+  const inDeploy = (G.phase==='deploy' && G.deployIdx!=null && G.deployIdx<2);
+  const curIdx = inDeploy ? G.deployIdx : G.turn;
+  const cur = G.players[curIdx];
+  if(!cur){ setActions([]); return; }
+
+  if(G.phase==='action' && !cur.cpu){
+    setActions([{label:'🎲 サイコロを振る', cls:'primary', fn:rollDice}]);
+  }else{
+    setActions([]);
+  }
+
+  if(!cur.cpu && inDeploy){
+    cur.hand.forEach((c,i)=>{
+      const d=document.createElement('div');
+      d.className='hcard';
+      d.innerHTML='<div class="hthumb">'+thumbHTML(c)+'</div><div class="hb">'
+        +'<div class="t">'+esc(c.name)+'</div>'
+        +'<div class="k">HP '+c.maxHp+'<br>'
+        + c.moves.map((m,j)=>'<span class="dnum">'+(j+1)+'</span>'+moveLabel(m)+'('+m.p+')').join('<br>')
+        +'</div></div>';
+      d.onclick=()=>deployFromHand(curIdx,i);
+      handEl.appendChild(d);
+    });
+  }
+}
+function deployFromHand(pi, idx){
+  if(G.phase!=='deploy') return;
+  if(G.players[pi].active) return;
+  if(G.rouletteDone) doRedeploy(pi, idx);
+  else deploy(pi, idx);
+}
+
+/* ===================== CPU ===================== */
+function cpuTurn(){ if(!G.over) rollDice(); }
+
+/* ===================== オーバーレイ ===================== */
+function showOverlay(t,s){ $('ovTitle').textContent=t; $('ovSub').textContent=s; $('overlay').classList.remove('hidden'); }
+function hideOverlay(){ $('overlay').classList.add('hidden'); }
+
+/* ===================== 起動 ===================== */
+function resetToDraft(){ G=null; startDraft($('mode').value); }
+$('btnAuto').onclick  = autoFillCurrent;
+$('restart').onclick = resetToDraft;
+$('ovBtn').onclick   = resetToDraft;
+$('mode').onchange   = resetToDraft;
+
+showScreen('loading');
+try{
+  await loadRoster();
+  if(!ROSTER.length){
+    $('loading').className='banner err';
+    $('loading').innerHTML='<b>図鑑にキャラクターがいません。</b><br>まずキャラクター図鑑でキャラを登録してください。';
+  }else if(!ROSTER.some(c=>c.playable)){
+    $('loading').className='banner err';
+    $('loading').innerHTML='<b>バトルに使えるキャラがいません。</b><br>図鑑でHPとわざを入力してください。';
+  }else{
+    startDraft('cpu');
+  }
+}catch(e){
+  $('loading').className='banner err';
+  $('loading').innerHTML='<b>⚠️ 図鑑のデータをよみこめませんでした。</b><br><small>'+esc(e.message)+'</small>';
+}
+</script>
+</body>
+</html>
