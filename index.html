@@ -418,6 +418,17 @@ function kiraClass(c){
   if(hp>=KIRA3_HP && pw>=KIRA3_PW) return ' kira3';
   return '';
 }
+/* ===== 負けポイント（たおれた時に増える負けカウント） =====
+   名前に ex / EX → 3、kira1 → 3、kira2・kira3 → 2、それ以外 → 1（複数当てはまれば大きい方） */
+const EX_NAME = /ex|EX/;
+function lossPoints(c){
+  let pt = 1;
+  const k = kiraClass(c);
+  if(k===' kira1') pt = 3;
+  else if(k===' kira2' || k===' kira3') pt = 2;
+  if(EX_NAME.test(String(c && c.name || ''))) pt = Math.max(pt, 3);
+  return pt;
+}
 function thumbHTML(c){
   return c.imageUrl
     ? '<img src="'+esc(c.imageUrl)+'" alt="">'
@@ -737,9 +748,10 @@ async function knockOut(loserIdxs){
   for(const i of loserIdxs){
     const L=G.players[i];
     if(!L.active) continue;
-    L.losses++;
+    const pt=lossPoints(L.active);
+    L.losses=Math.min(MAX_LOSS, L.losses+pt);
     fallen.push(L.active.name);
-    logMsg('💥 <b>'+esc(L.name)+'</b>の '+esc(L.active.name)+' はたおれた！ 負けカウント <span class="hl">'+L.losses+'/'+MAX_LOSS+'</span>');
+    logMsg('💥 <b>'+esc(L.name)+'</b>の '+esc(L.active.name)+' はたおれた！ 負けカウント +'+pt+' → <span class="hl">'+L.losses+'/'+MAX_LOSS+'</span>');
     L.active=null;
   }
   setMsg(fallen.join(' と ')+' はたおれた！');
